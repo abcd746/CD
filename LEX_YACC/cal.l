@@ -11,7 +11,7 @@ extern int lineno;
     return NUM;
 }
 [ \t]+ {}
-[\+\-\*\/] {
+[\+\-\*\/\^] {
     return yytext[0];
 }
 [\n] {

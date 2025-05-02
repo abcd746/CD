@@ -10,5 +10,5 @@ extern int lineno;
 [ \t]+ {}
 [\n] {lineno++;}
 [\(\)] {return yytext[0];}
-[\+\-\*\/] {return yytext[0];}
+[\+\-\*\/\^] {return yytext[0];}
 %%

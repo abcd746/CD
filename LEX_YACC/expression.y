@@ -9,7 +9,8 @@ extern FILE *yyin;
 
 %token ID NUM
 %left '+' '-'
-%right '*' '/'
+%left '*' '/'
+%right '^'
 %%
 
 S:E
@@ -18,6 +19,7 @@ E: ID | NUM
 | E '-' E
 | E '*' E
 | E '/' E
+| E '^' E
 | '(' E ')'
 %%
 void yyerror(const char *s){
