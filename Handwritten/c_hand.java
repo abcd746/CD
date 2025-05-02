@@ -6,8 +6,15 @@ public class c_hand {
         if(args.length > 0){
             try {
                 String code = Files.readString(Path.of(args[0]));
-                String regex = "(?<KEY>\\bint\\b|\\bfloat\\b|\\bif\\b)" + "|(?<ID>[a-zA-z_][a-zA-z0-9]*)" + "|(?<NUM>[0-9]+)" + "|(?<OP>[=+\\-*/])" + "|(?<DIL>[(){};])";
-
+                String regex = 
+                    "(?<KEY>\\b(int|float|if)\\b)" +
+                    "|(?<ID>[a-zA-Z_][a-zA-Z0-9_]*)" +
+                    "|(?<NUM>[0-9]+)" +
+                    "|(?<OP>==|=|[-+*/])" +  
+                    "|(?<DIL>[(){};])" +
+                    "|(?<NEWLINE>\\n)" +     
+                    "|(?<WS>\\s+)" +         
+                    "|(?<UNKNOWN>.)";        
                 Pattern pattern = Pattern.compile(regex);
                 Matcher matcher = pattern.matcher(code);
                 while(matcher.find()){
@@ -16,7 +23,7 @@ public class c_hand {
                     else if(matcher.group("NUM") != null) System.out.println("NUM\t"+matcher.group());
                     else if(matcher.group("OP") != null) System.out.println("OP\t"+matcher.group());
                     else if(matcher.group("DIL") != null) System.out.println("DIL\t"+matcher.group());
-                    
+                    else if (matcher.group("UNKNOWN") != null) System.out.println("UNKNOWN\t" + matcher.group());
                 }
             } catch (Exception e) {
                 System.err.println("Error reading file: " + e.getMessage());
