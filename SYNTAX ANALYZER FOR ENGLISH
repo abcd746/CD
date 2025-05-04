@@ -1,0 +1,220 @@
+nano english_lex.l-
+%{
+    // Implement lexical analyzer for subset of English language using LEX
+    #include <stdio.h>
+    extern FILE *yyin;
+    int lno = 1;
+%}
+
+%%
+
+[0-9]+ { 
+    printf("Line %d: Lexeme '%s' Token: NUMBER Token-Value: %s\n", lno, yytext, yytext); 
+}
+
+"I"|"you"|"he"|"she"|"it"|"we"|"they"|"me"|"him"|"her"|"us"|"them"|"my"|"your"|"his"|"its"|"our"|"their"|"mine"|"yours"|"hers"|"ours"|"theirs"|"myself"|"yourself"|"himself"|"herself"|"itself"|"ourselves"|"yourselves"|"themselves" {
+    printf("Line %d: Lexeme '%s' Token: PRONOUN Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[A-Z][a-z]+ {  
+    printf("Line %d: Lexeme '%s' Token: NOUN Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[a-z]+("able"|"ible"|"al"|"ant"|"ent"|"ary"|"ory"|"ed"|"en"|"ful"|"ic"|"ical"|"ish"|"ive"|"less"|"like"|"ly"|"ous"|"ious"|"eous"|"y"|"some"|"ing"|"ese"|"esque"|"ian"|"ar"|"ine"|"istic"|"worthy")$ {  
+    printf("Line %d: Lexeme '%s' Token: ADJECTIVE Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[a-z]+("ly") {  
+    printf("Line %d: Lexeme '%s' Token: ADVERB Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[a-z]+("ed"|"ing") {  
+    printf("Line %d: Lexeme '%s' Token: VERB Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[a-z]+ {  
+    printf("Line %d: Lexeme '%s' Token: WORD Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[ \t]+ {  
+   /* skip whitespace */
+}
+
+\n { 
+    lno++; 
+}
+
+['"“”] {  
+    printf("Line %d: Lexeme '%s' Token: QUOTATION Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[.,!?;:] {  
+    printf("Line %d: Lexeme '%s' Token: PUNCTUATION Token-Value: %s\n", lno, yytext, yytext);
+}
+
+. { 
+    printf("Line %d: Lexeme '%s' Error: UNRECOGNIZED SYMBOL\n", lno, yytext); 
+}
+
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main() {
+    FILE *f = fopen("english.txt", "r");
+    if (!f) {
+        perror("Failed to open english.txt");
+        return 1;
+    }
+    yyin = f;
+    printf("Reading English text from english.txt...\n\n");
+    yylex();
+    fclose(f);
+    return 0;
+}
+
+
+nano engsyntax.l-
+%{
+#include "engsyntax.tab.h"
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdio.h>   
+
+#ifndef strdup
+char *strdup(const char *s) {
+    char *d = malloc(strlen(s) + 1);
+    if (d == NULL) return NULL;
+    strcpy(d, s);
+    return d;
+}
+#endif
+
+// Convert to lowercase for case-insensitive match
+char *to_lower(const char *s) {
+    char *lower = strdup(s);
+    if (lower == NULL) return NULL;   // <-- Avoid NULL dereference
+    for (int i = 0; lower[i]; i++) {
+        lower[i] = tolower((unsigned char)lower[i]);
+    }
+    return lower;
+}
+%}
+
+%%
+
+[aA]|[tT][hH][eE] {
+    char *word = to_lower(yytext);
+    yylval.str = word;
+    return ARTICLE;
+}
+
+[bB][lL][aA][cC][kK]|[wW][hH][iI][tT][eE]|[hH][aA][pP][pP][yY]|[aA][nN][gG][rR][yY] {
+    yylval.str = to_lower(yytext);
+    return ADJECTIVE;
+}
+
+[cC][aA][tT][sS]?|[dD][oO][gG][sS]?|[fF][iI][sS][hH]|[fF][oO][oO][dD][sS]? {
+    yylval.str = to_lower(yytext);
+    return NOUN;
+}
+
+[eE][aA][tT][sS]?|[lL][oO][vV][eE][sS]?|[hH][aA][tT][eE][sS]? {
+    yylval.str = to_lower(yytext);
+    return VERB;
+}
+
+[ \t\r\n]+   { /* skip whitespace */ }
+[.?!]        { /* ignore punctuation */ }
+
+[a-zA-Z]+    {
+    char *word = to_lower(yytext);
+   // printf("Unknown word: %s\n", word);
+    free(word);
+    return 0;
+}
+
+.            { return yytext[0]; }
+
+.[!@#$%^&*|]  {  
+    printf("unidentified token\n");
+    exit(0);
+}
+
+%%
+
+int yywrap() { return 1; }
+
+nano engsyntax.y-
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+void yyerror(const char *s);
+int yylex();
+extern FILE *yyin;  // Declare yyin for file input
+%}
+
+%union {
+    char* str;
+}
+
+%token <str> ARTICLE NOUN VERB ADJECTIVE
+%type <str> sentence opt_adj
+
+%%
+
+sentence:
+    ARTICLE opt_adj NOUN VERB NOUN {
+        printf("Valid sentence structure:\n");
+        printf("Article: %s\n", $1);
+        if ($2) printf("Adjective: %s\n", $2);
+        printf("Subject: %s\n", $3);
+        printf("Verb: %s\n", $4);
+        printf("Object: %s\n", $5);
+        
+        // Free allocated memory
+        free($1); free($2); free($3); free($4); free($5);
+    }
+    ;
+
+opt_adj:
+    /* empty */    { $$ = NULL; }
+    | ADJECTIVE    { $$ = $1; }
+    ;
+
+%%
+
+void yyerror(const char *s) {
+    fprintf(stderr, "Syntax error: %s\n", s);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    yyparse();
+    
+    fclose(yyin);
+    return 0;
+}  
+
+nano english.txt-
+The cat eats fish.
+
+lex engsyntax.l
+yacc -d engsyntax.y
+gcc lex.yy.c y.tab.c -o engparser
+./engparser english.txt
