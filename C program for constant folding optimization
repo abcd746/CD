@@ -1,0 +1,128 @@
+nano constant_folding.c –
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+typedef struct {
+    char op[4], arg1[10], arg2[10], result[10];
+} Quad;
+
+Quad quads[100];
+int quad_count = 0;
+
+// Store values for temporary variables
+typedef struct {
+    char name[10];
+    int value;
+    int is_const;
+} TempVal;
+
+TempVal temp_vals[100];
+int temp_count = 0;
+
+int isNumber(char *s) {
+    for (int i = 0; s[i]; i++)
+        if (!isdigit(s[i])) return 0;
+    return 1;
+}
+
+int getValue(char *s, int *val) {
+    if (isNumber(s)) {
+        *val = atoi(s);
+        return 1;
+    }
+    for (int i = 0; i < temp_count; i++) {
+        if (strcmp(temp_vals[i].name, s) == 0 && temp_vals[i].is_const) {
+            *val = temp_vals[i].value;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void setTempVal(char *name, int value, int is_const) {
+    for (int i = 0; i < temp_count; i++) {
+        if (strcmp(temp_vals[i].name, name) == 0) {
+            temp_vals[i].value = value;
+            temp_vals[i].is_const = is_const;
+            return;
+        }
+    }
+    strcpy(temp_vals[temp_count].name, name);
+    temp_vals[temp_count].value = value;
+    temp_vals[temp_count].is_const = is_const;
+    temp_count++;
+}
+
+int evaluate(char *op, int v1, int v2) {
+    if (strcmp(op, "+") == 0) return v1 + v2;
+    if (strcmp(op, "-") == 0) return v1 - v2;
+    if (strcmp(op, "*") == 0) return v1 * v2;
+    if (strcmp(op, "/") == 0) return v1 / v2;
+    return 0;
+}
+
+void foldConstants() {
+    printf("Performing Constant Folding...\n");
+    for (int i = 0; i < quad_count; i++) {
+        int v1, v2;
+        if (getValue(quads[i].arg1, &v1) && getValue(quads[i].arg2, &v2)) {
+            int folded = evaluate(quads[i].op, v1, v2);
+            printf("Folding: %s %s %s => %d\n", quads[i].op, quads[i].arg1, quads[i].arg2, folded);
+            sprintf(quads[i].op, "=");
+            sprintf(quads[i].arg1, "%d", folded);
+            quads[i].arg2[0] = '\0';
+            setTempVal(quads[i].result, folded, 1);
+        } else {
+            setTempVal(quads[i].result, 0, 0);
+        }
+    }
+}
+
+void printQuads() {
+    printf("Nr | Op  | Arg1 | Arg2 | Result\n");
+    for (int i = 0; i < quad_count; i++) {
+        printf("%03d| %-3s | %-4s | %-4s | %-6s\n", i + 1, quads[i].op, quads[i].arg1, quads[i].arg2, quads[i].result);
+    }
+}
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        printf("Usage: %s <quad_file>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *fp = fopen(argv[1], "r");
+    if (!fp) {
+        perror("File open error");
+        return 1;
+    }
+
+    while (fscanf(fp, "%s %s %s %s", quads[quad_count].op, quads[quad_count].arg1,
+                                       quads[quad_count].arg2, quads[quad_count].result) == 4) {
+        quad_count++;
+    }
+    fclose(fp);
+
+    printf("\n--- Initial Quads ---\n");
+    printQuads();
+
+    foldConstants();
+
+    printf("\n--- After Constant Folding ---\n");
+    printQuads();
+
+    return 0;
+}
+
+
+nano quad.txt -
++ 2 3 t1
+* 4 5 t2
++ t1 t2 t3
+/ 10 2 t4
+
+
+gcc constant_folding.c -o const_fold
+./const_fold quad.txt
