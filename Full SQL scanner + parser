@@ -1,0 +1,196 @@
+sql_lex.l-
+%{
+    // Lexical Analyzer for a subset of SQL using Lex
+    #include <stdio.h>
+    extern FILE *yyin;
+    int lno = 1;
+%}
+
+%%
+
+"--"[^\n]* {
+    printf("Line %d: Lexeme '%s' Token: SINGLE_LINE_COMMENT\n", lno, yytext);
+}
+
+\/\*([^*]|\*+[^*/])*\*+\/ {
+    printf("Line %d: Lexeme '%s' Token: MULTI_LINE_COMMENT\n", lno, yytext);
+}
+
+"SELECT"|"FROM"|"WHERE"|"INSERT"|"INTO"|"VALUES"|"UPDATE"|"SET"|"DELETE"|"CREATE"|"TABLE"|"DROP"|"ALTER"|"ADD"|"JOIN"|"ON"|"AS"|"GROUP"|"BY"|"ORDER"|"HAVING"|"DISTINCT"|"AND"|"OR"|"NOT"|"IN"|"IS"|"NULL"|"LIKE"|"BETWEEN"|"EXISTS"|"UNION"|"ALL"|"CASE"|"WHEN"|"THEN"|"ELSE"|"END"|"LIMIT"|"OFFSET" {
+    printf("Line %d: Lexeme '%s' Token: KEYWORD Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[a-zA-Z_][a-zA-Z0-9_]* {
+    printf("Line %d: Lexeme '%s' Token: IDENTIFIER Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[0-9]+\.[0-9]+ {
+    printf("Line %d: Lexeme '%s' Token: FLOAT_LITERAL Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[0-9]+ {
+    printf("Line %d: Lexeme '%s' Token: INT_LITERAL Token-Value: %s\n", lno, yytext, yytext);
+}
+
+\'([^\\\']|\\.)*\' {
+    printf("Line %d: Lexeme '%s' Token: STRING_LITERAL Token-Value: %s\n", lno, yytext, yytext);
+}
+
+"="|"!="|"<>"|"<="|">="|"<"|">"|"+"|"-"|"*"|"/"|"%" {
+    printf("Line %d: Lexeme '%s' Token: OPERATOR Token-Value: %s\n", lno, yytext, yytext);
+}
+
+"("|")"|","|";"|"\." {
+    printf("Line %d: Lexeme '%s' Token: SYMBOL Token-Value: %s\n", lno, yytext, yytext);
+}
+
+[ \t]+    { /* skip whitespace */ }
+
+\n        { lno++; }
+
+. {
+    printf("Line %d: Lexeme '%s' Error: Unrecognized symbol\n", lno, yytext);
+}
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main() {
+    FILE *f = fopen("sql.txt", "r");
+    if (!f) {
+        perror("Failed to open input.txt");
+        return 1;
+    }
+    yyin = f;
+    printf("Reading SQL code from input.txt...\n\n");
+    yylex();
+    fclose(f);
+    return 0;
+}
+
+
+
+sql_syntax.l-
+%{
+#include "sql_syntax.tab.h"
+#include <string.h>
+#include <stdlib.h>
+
+#ifndef strdup
+char *strdup(const char *s) {
+    char *d = malloc(strlen(s) + 1);
+    if (d == NULL) return NULL;
+    strcpy(d, s);
+    return d;
+}
+#endif
+%}
+
+%%
+
+"SELECT"            { return SELECT; }
+"FROM"              { return FROM; }
+","                 { return COMMA; }
+";"                 { return SEMICOLON; }
+[a-zA-Z_][a-zA-Z0-9_]*  { yylval.str = strdup(yytext); return IDENTIFIER; }
+[ \t\r\n]+          { /* skip whitespace */ }
+.                   { return yytext[0]; }
+
+%%
+int yywrap() { return 1; }
+
+
+
+sql_syntax.y-
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void yyerror(const char *s);
+int yylex();
+void print_indent(int level);
+extern FILE *yyin;
+int indent = 0;
+%}
+
+%union {
+    char* str;
+}
+
+%token <str> IDENTIFIER
+%token SELECT FROM COMMA SEMICOLON
+
+%%
+
+query:
+    SELECT select_list FROM IDENTIFIER SEMICOLON {
+        print_indent(indent);
+        printf("|-- SELECT statement\n");
+        indent++;
+        print_indent(indent);
+        printf("|-- Columns:\n");
+        indent++;
+        // Columns printed in select_list rule
+        indent--;
+        print_indent(indent);
+        printf("|-- Table: %s\n", $4);
+        indent--;
+    }
+    ;
+
+select_list:
+    IDENTIFIER {
+        print_indent(indent);
+        printf("|-- Column: %s\n", $1);
+    }
+    | select_list COMMA IDENTIFIER {
+        print_indent(indent);
+        printf("|-- Column: %s\n", $3);
+    }
+    ;
+
+%%
+
+void yyerror(const char *s) {
+    printf("Syntax Error: %s\n", s);
+}
+
+void print_indent(int level) {
+    for (int i = 0; i < level; i++) {
+        printf("    ");
+    }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+    
+    FILE *input_file = fopen(argv[1], "r");
+    if (!input_file) {
+        perror("Error opening input file");
+        return 1;
+    }
+    
+    yyin = input_file;
+    yyparse();
+    fclose(input_file);
+    return 0;
+}
+
+
+sql.txt-
+SELECT name, age FROM users WHERE age >= 18;
+
+
+
+bison -d sql_syntax.y            
+flex sql_lex.l                   
+flex sql_syntax.l                
+gcc sql_syntax.tab.c lex.yy.c -o sqlparser -lfl
+./sqlparser sql.txt
