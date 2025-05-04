@@ -1,0 +1,98 @@
+nano word_count.l –
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_WORDS 1000
+#define MAX_LINES 100
+
+typedef struct {
+    char word[100];
+    int count;
+    int lines[MAX_LINES];
+    int lineCount;
+} WordEntry;
+
+WordEntry words[MAX_WORDS];
+int word_count = 0;
+int line_no = 1;
+
+void toLower(char *s) {
+    for (int i = 0; s[i]; i++) {
+        s[i] = tolower(s[i]);
+    }
+}
+
+void addWord(char *text) {
+    toLower(text);
+    for (int i = 0; i < word_count; i++) {
+        if (strcmp(words[i].word, text) == 0) {
+            words[i].count++;
+            if (words[i].lines[words[i].lineCount - 1] != line_no) {
+                words[i].lines[words[i].lineCount++] = line_no;
+            }
+            return;
+        }
+    }
+    strcpy(words[word_count].word, text);
+    words[word_count].count = 1;
+    words[word_count].lines[0] = line_no;
+    words[word_count].lineCount = 1;
+    word_count++;
+}
+%}
+
+%%
+[a-zA-Z]+       { addWord(yytext); }
+\n              { line_no++; }
+[ \t\r]+        { /* ignore whitespace */ }
+.               { /* ignore punctuation */ }
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    FILE *file;
+    if (argc < 2) {
+        printf("Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    file = fopen(argv[1], "r");
+    if (!file) {
+        perror("Could not open the file");
+        return 1;
+    }
+
+    yyin = file;
+    yylex();
+    fclose(file);
+
+    printf("\nWord\t\tCount\tLine Numbers\n");
+    printf("-------------------------------------------------------------\n");
+    for (int i = 0; i < word_count; i++) {
+        printf("%-15s\t%-5d\t", words[i].word, words[i].count);
+        for (int j = 0; j < words[i].lineCount; j++) {
+            printf("%d ", words[i].lines[j]);
+        }
+        printf("\n");
+    }
+
+    return 0;
+}
+
+
+nano some_text.txt-
+Hello world
+This is a test.
+Hello again, world.
+Testing word count, word count again.
+
+
+flex word_count.l                
+gcc lex.yy.c -o word_count -lfl
+./word_count  some_text.txt    
