@@ -1,0 +1,79 @@
+vowels_count.l
+%{
+#include <stdio.h>
+#include <ctype.h>
+
+int vowels = 0, consonants = 0;
+FILE *output;
+%}
+
+%%
+
+[a-zA-Z] {
+    char ch = tolower(yytext[0]);
+    fputc(ch, output);
+    if (ch == 'a' || ch == 'e' || ch == 'i' || ch == 'o' || ch == 'u') {
+        vowels++;
+    } else {
+        consonants++;
+    }
+}
+
+.|\n { fputc(yytext[0], output); }
+
+%%
+
+int main(int argc, char *argv[]) {
+    if (argc < 3) {
+        printf("Usage: ./a.out <input_file> <output_file>\n");
+        return 1;
+    }
+
+    FILE *input = fopen(argv[1], "r");
+    output = fopen(argv[2], "w");
+
+    if (!input || !output) {
+        printf("Error opening files.\n");
+        return 1;
+    }
+
+    yyin = input;
+    yylex();
+
+    fprintf(output, "\n\nTotal vowels: %d\n", vowels);
+    fprintf(output, "Total consonants: %d\n", consonants);
+
+    fclose(input);
+    fclose(output);
+    return 0;
+}
+
+int yywrap() {
+    return 1;
+}
+
+
+input.txt
+This Is A Sample INPUT Text.
+
+# Step 1: Save the above code in a file
+nano vowel_consonant.l
+
+# Step 2: Create an input file
+echo "This Is A Sample INPUT Text." > input.txt
+
+# Step 3: Compile the lex code
+lex vowel_consonant.l
+gcc lex.yy.c -o vowel_counter
+
+# Step 4: Run the program
+./vowel_counter input.txt output.txt
+
+# Step 5: View the output
+cat output.txt
+
+
+nano vowel_consonant.l
+flex vowel_consonant.l
+gcc lex.yy.c -o vowel_counter
+./vowel_counter input.txt output.txt
