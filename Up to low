@@ -1,0 +1,50 @@
+%{
+#include <stdio.h>
+int vowel_count = 0;
+int consonant_count = 0;
+%}
+
+%%
+
+[aAeEiIoOuU]    { 
+                    vowel_count++; 
+                    ECHO;
+                }
+
+[b-df-hj-np-tv-zB-DF-HJ-NP-TV-Z] {
+                    consonant_count++; 
+                    ECHO;
+                }
+
+[a-z]           {
+                    // lowercase non-vowel (already handled above)
+                    putchar(toupper(yytext[0]));
+                }
+
+[A-Z]           {
+                    // already uppercase, just print
+                    putchar(yytext[0]);
+                }
+
+[ \t\n]         {
+                    // whitespace, print as is
+                    putchar(yytext[0]);
+                }
+
+.               {
+                    // other characters
+                    putchar(yytext[0]);
+                }
+
+%%
+
+int main(int argc, char **argv) {
+    yylex();
+    printf("\nVowels: %d\n", vowel_count);
+    printf("Consonants: %d\n", consonant_count);
+    return 0;
+}
+
+flex vowel_consonant.l
+gcc lex.yy.c -o lexer -lfl
+./lexer
